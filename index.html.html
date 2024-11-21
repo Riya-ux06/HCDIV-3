@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://d3js.org/d3.v6.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <title>3BHK Resale Flat Prices by Town (2017–2024)</title>
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #000;
+            margin: 0;
+        }
+        .bar:hover {
+            fill: url(#hover-gradient);
+        }
+        .line {
+            fill: none;
+            stroke: #ffffff;
+            stroke-width: 2px;
+        }
+        .tooltip {
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 3px;
+            pointer-events: none;
+            font-size: 12px;
+            box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            margin: 20px;
+            color: #ffffff;
+            font-weight: 500;
+        }
+        p {
+            margin: 20px;
+            color: #ffffff;
+            text-align: center;
+            max-width: 1100px;
+            font-weight: 400;
+        }
+        .legend {
+            display: flex;
+            justify-content: center;
+            color: #ffffff;
+            margin: 10px;
+            font-weight: 500;
+        }
+        .axis-label {
+            font-size: 14px;
+            fill: #ffffff;
+            font-weight: 400;
+        }
+        text {
+            fill: #ffffff;
+            font-size: 12px;
+        }
+        .grid line {
+            stroke: #7f8c8d;
+            stroke-dasharray: 4;
+        }
+        .grid path {
+            stroke: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>3BHK Resale Flat Prices by Town (2017–2024)</h1>
+    <svg width="1100" height="600"></svg>
+    <div class="legend">
+        <p><strong>X-Axis:</strong> Towns | <strong>Y-Axis:</strong> Average Resale Price (SGD)</p>
+    </div>
+    <p>
+        <strong>Hypothesis:</strong> Resale prices of 3BHK flats (3 ROOM) in Singapore differ significantly across towns due to 
+        variations in location, infrastructure, and demand. Towns with closer proximity to central business districts, 
+        better public transport connectivity, and access to amenities tend to command higher resale prices. By analyzing 
+        these trends, policymakers and homebuyers can better understand regional price disparities and make informed decisions 
+        to address housing affordability challenges.
+    </p>
+    <div id="tooltip" class="tooltip" style="opacity: 0;"></div>
+    <script>
+        // Data: Average resale prices and years by town
+        const data = [
+            { town: "Ang Mo Kio", price: 443888.52 },
+            { town: "Bedok", price: 441282.06 },
+            { town: "Bishan", price: 432137.91 },
+            { town: "Bukit Batok", price: 452279.38 },
+            { town: "Bukit Merah", price: 511381.24 },
+            { town: "Bukit Panjang", price: 549714.33 },
+            { town: "Bukit Timah", price: 571804.00 },
+            { town: "Central Area", price: 609251.75 }
+        ];
+
+        // Dimensions and margins
+        const width = 1100;
+        const height = 600;
+        const margin = { top: 50, right: 50, bottom: 120, left: 100 };
+
+        // Create SVG canvas
+        const svg = d3.select("svg")
+            .attr("width", width)
+            .attr("height", height);
+
+        // Add a linear gradient for the bars
+        const defs = svg.append("defs");
+
+        const gradient = defs.append("linearGradient")
+            .attr("id", "bar-gradient")
+            .attr("x1", "0%")
+            .attr("y1", "0%")
+            .attr("x2", "0%")
+            .attr("y2", "100%");
+
+        gradient.append("stop")
+            .attr("offset", "0%")
+            .attr("stop-color", "#ff9f43");
+
+        gradient.append("stop")
+            .attr("offset", "100%")
+            .attr("stop-color", "#ff6b6b");
+
+        const hoverGradient = defs.append("linearGradient")
+            .attr("id", "hover-gradient")
+            .attr("x1", "0%")
+            .attr("y1", "0%")
+            .attr("x2", "0%")
+            .attr("y2", "100%");
+
+        hoverGradient.append("stop")
+            .attr("offset", "0%")
+            .attr("stop-color", "#ff6b6b");
+
+        hoverGradient.append("stop")
+            .attr("offset", "100%")
+            .attr("stop-color", "#e74c3c");
+
+        // Tooltip
+        const tooltip = d3.select("#tooltip");
+
+        // Scales
+        const x = d3.scaleBand()
+            .domain(data.map(d => d.town))
+            .range([margin.left, width - margin.right])
+            .padding(0.1);
+
+        const y = d3.scaleLinear()
+            .domain([0, d3.max(data, d => d.price)]).nice()
+            .range([height - margin.bottom, margin.top]);
+
+        // Add gridlines
+        svg.append("g")
+            .attr("class", "grid")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y).tickSize(-width + margin.left + margin.right).tickFormat(''));
+
+        // Bars
+        svg.selectAll(".bar")
+            .data(data)
+            .enter().append("rect")
+            .attr("class", "bar")
+            .attr("x", d => x(d.town))
+            .attr("y", d => y(d.price))
+            .attr("height", d => y(0) - y(d.price))
+            .attr("width", x.bandwidth())
+            .attr("fill", "url(#bar-gradient)")
+            .on("mouseover", function (event, d) {
+                tooltip.transition().duration(200).style("opacity", 1);
+                tooltip.html(`Town: ${d.town}<br>Average Price: $${d.price.toLocaleString()}`)
+                    .style("left", (event.pageX + 10) + "px")
+                    .style("top", (event.pageY - 28) + "px");
+                d3.select(this).attr("fill", "url(#hover-gradient)");
+            })
+            .on("mouseout", function () {
+                tooltip.transition().duration(200).style("opacity", 0);
+                d3.select(this).attr("fill", "url(#bar-gradient)");
+            });
+
+        // Line generator
+        const line = d3.line()
+            .x(d => x(d.town) + x.bandwidth() / 2)
+            .y(d => y(d.price));
+
+        // Add line
+        svg.append("path")
+            .datum(data)
+            .attr("class", "line")
+            .attr("d", line)
+            .style("stroke", "#ffffff")
+            .style("fill", "none");
+
+        // Add points on the line
+        svg.selectAll(".point")
+            .data(data)
+            .enter().append("circle")
+            .attr("class", "point")
+            .attr("cx", d => x(d.town) + x.bandwidth() / 2)
+            .attr("cy", d => y(d.price))
+            .attr("r", 4)
+            .attr("fill", "#ffffff");
+
+        // Add x-axis
+        svg.append("g")
+            .attr("transform", `translate(0,${height - margin.bottom})`)
+            .call(d3.axisBottom(x))
+            .selectAll("text")
+            .attr("text-anchor", "middle");
+
+        // Add y-axis
+        svg.append("g")
+            .attr("transform", `translate(${margin.left},0)`)
+            .call(d3.axisLeft(y));
+    </script>
+</body>
+</html>
